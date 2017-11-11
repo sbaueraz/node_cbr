@@ -1,0 +1,25 @@
+{
+  "name": "node_cbr",
+  "version": "1.0.0",
+  "description": "Comic cbr/cbz web viewer",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Comicbook",
+    "cbr",
+    "cbz"
+  ],
+  "author": "Scott Bauer <scott@bauerfarm.com>",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.15.4",
+    "is-image": "^2.0.0",
+    "locks": "^0.2.2",
+    "node-unrar-js": "^0.8.1",
+    "sharp": "^0.18.4",
+    "yauzl": "^2.8.0"
+  },
+  "devDependencies": {}
+}

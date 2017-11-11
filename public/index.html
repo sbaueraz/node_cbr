@@ -1,0 +1,353 @@
+<html>
+<head>
+ <title>Comicbooks</title>
+ <style>
+    body{color: #fff; background-color: #000; font: 12px 'Lucida Grande', Verdana, sans-serif;}
+    .box {float:left; width: 210px; height: 365px; border: 1px solid #9AAFE5; text-decoration: none; text-align: center;position:relative;background: rgba(0,0,0, 1);}
+    a:link { color: #fff; }
+    a:visited { color: #c0c0c0; }
+    a:hover { color: #8080FF; }
+    a:active { color: #333333; }
+
+    .breadcrumb {padding: 5px;}
+    #main{
+        position:relative;
+        z-index:1;
+        padding-bottom: 25px;
+        background-color: #000;
+        display: inline-block;
+    }
+    footer{
+        height: 25px;
+        width:100%;
+        color:#ccc;
+        bottom: 0px;
+
+        position:fixed;
+        z-index:-2;
+    }
+
+    #NextFile {position:fixed; right: 30px;bottom:7px;}
+    td, img {padding:0;margin:-1px;}
+    .atag {width: 210px;height: 365px;display:block;}
+    .icontext{bottom:3px;position:absolute;width:100%;}
+    /* Page Numbers */
+    .pages { padding: .5em 0; margin: 0 0; clear: left; font-size: 16; }
+</style>
+ 
+ <!-- Prevent scaling, remove this line if you want to be able to resize the page
+ <meta name = "viewport" content = "user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" /> -->
+ 
+ <!-- Look like a native app if launched from an iPhone or iPad -->
+ <meta name="apple-mobile-web-app-capable" content="yes" />
+
+ <!-- Choose how to handle the phone status bar -->
+ <meta name="apple-mobile-web-app-statu
+ s-bar-style" content="black" />
+
+ <link rel="apple-touch-icon" href="img/comics.png"/>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+<script src="js/echo.js"></script>
+
+<SCRIPT language="JavaScript">
+var currentDir="";
+
+function joinPaths(beg, end) {
+    var ret = beg;
+
+    if (!ret.endsWith('/') && !end.startsWith('/'))
+        ret += '/';
+    ret += end;
+
+    return ret;
+}
+
+function changeDir(dir) {
+    var newDir = "";
+
+    if (currentDir != "" && currentDir.substr(-1) == "/")
+        currentDir = currentDir.substr(0,currentDir.length - 1);
+    
+    if (dir == "..") {
+        var i = currentDir.lastIndexOf("/");
+        if (i != -1)
+            newDir = currentDir.substring(0,i);
+        else
+            newDir = "";
+    } else {
+        if (currentDir != "")
+            newDir = currentDir + "/";
+        newDir += dir;
+    }
+
+    loadDir(newDir);
+}
+
+function replaceStr(str,from,to) {
+    var i = 0;
+    
+    for (i = str.length - 1;i >= 0;i --) {
+        if (str.substr(i,from.length) == from)
+            str = str.substr(0,i) + to + str.substr(i+from.length);
+    }
+
+    return str;
+}
+
+function fixHTMLQuery(query) {
+    return encodeURIComponent(query);
+}
+
+function formatTitle(str) {
+    str = decodeURIComponent(str);
+//    str = replaceStr(str,"&amp;","&");
+    var idx = str.lastIndexOf("/");
+    if (idx >= -1)
+        str = str.slice(idx+1);
+    return str;
+}
+
+function countPagesThenOpen(file,dir,fileNbr) {
+    console.log("countPagesThenOpen()",dir,"comic:",file,fileNbr);
+    $.get('/api/pages',{comic: file},function (data) {
+        console.log("coungpages returned:",data);
+        openComic(file,data.Pages,dir,fileNbr);
+     }, "json");
+}
+
+function calculateHeight() {
+    var h = window.innerHeight;
+    if (h == null)
+        h = window.screen.availHeight;
+
+    if (h == null)
+        h = 1000;
+    else if (h < 950)
+        h = 950;
+
+    return h;
+}
+
+function generateBreadcrumb(dir, file) {
+    var parts = dir.split('/');
+    var sep = '/';
+    //var links = "<a class='breadcrumb' href='javascript:;' onclick='loadDir(\"/\");return false;'>\\</a>";
+    var links = "";
+
+    if (!parts.length || parts[0] != '/')
+        parts.unshift(sep);
+
+    console.log("breadcrumb ",dir,sep,parts);
+    var dir = "";
+
+    var len = parts.length;
+    for (var i = 0;i < len;i ++) {
+        if (parts[i]) {
+            if (dir) {
+                links += "&bull;";
+                dir += sep;
+            }
+            dir += parts[i];
+            links += "<a class='breadcrumb' href='javascript:;' onclick='loadDir(\"" + dir + "\");return false;'>" + parts[i] + "</a>";
+        }
+    }
+    if (file) {
+        parts = file.split('/');
+        links += "&bull;<span class='breadcrumb'>" + parts[parts.length-1] + "</span>";
+        links += "<button id='NextFile'>Next</button>";
+    }
+
+    console.log("returning ",links);
+    return links;
+}
+
+function openComic(file,totalPages,dir,fileNbr) {
+    document.getElementById("details").innerHTML="";
+
+    window.scrollBy(-90000,0);
+
+    setSetting("cvFile",file);
+    setSetting("cvTotalPages",totalPages);
+    setSetting("cvDir",dir);
+    setSetting("cvFileNbr",fileNbr);
+
+    var pageCode = "<table><tr>";
+
+    // Calculate how tall we should draw each page
+    var imgHeight = calculateHeight();
+    var pixHeight = imgHeight;
+    var dpr = 1;
+    if (window.devicePixelRatio !== undefined) dpr = window.devicePixelRatio;
+    if (dpr)
+        imgHeight = Math.floor(imgHeight * dpr);
+
+    //alert("Height: " + imgHeight + ", dpr: " + dpr);
+    for (var i = 0;i < totalPages;i ++) {
+        var link = "/api/comicpage?comic="+fixHTMLQuery(file)+"&page="+(i+1)+"&height="+imgHeight;
+        pageCode += "<td valign=\"top\"><img id='page_" + i + "' src='img/blank.gif' data-echo=\"" + link + "\" border='0' height='"+pixHeight+"'/></td>";
+    }
+    pageCode += "</tr></table>";
+
+    var linksCode = generateBreadcrumb(dir, file);
+
+    $("#details").html(pageCode);
+    $("#breadCrumb").html(linksCode);
+
+    console.log("Setting load next file for", dir);
+    $("#NextFile").click(function() {loadNextFile(dir, fileNbr);return false;});
+}
+
+function loadDir(dir) {
+    $("#breadCrumb").html("");
+    $("#details").html("<center>Loading directory...<br><img src='/img/loading.gif'/></center>");
+    window.scrollBy(-90000,0);
+
+    while (dir.substr(dir.length-1,1) == "/")
+        dir=dir.substr(0,dir.length-1);
+    var dir2 = dir;
+
+    setSetting("cvFile","");
+    setSetting("cvDir",dir);
+    var backDir = dir;
+
+    console.log("loading directory",dir);
+    $.get('/api/directory',{dir: dir},function (data) {
+        var listCode = "";
+
+        if (dir.toUpperCase().endsWith(".RO")) {
+            console.log("Setting dir to nothing",dir);
+            dir = "";
+        }
+        else
+            console.log("not setting dir to nothing",dir);
+
+        console.log("Directory contains this many directories",data.length);
+        console.log("directories:",data);
+        for (i = 0;i < data.length;i++) {
+            if (data[i].Type == "dir") {
+                listCode += "<div class=\"box\">";
+                listCode += "<a id='thumb_" + i + "' class=\"atag\" href='#'>";
+                listCode += "<img width='200' data-echo=\"/api/thumbnail?comic=" + fixHTMLQuery(joinPaths(dir, data[i].Name)) + "\"/>";
+                listCode += "<div class='icontext'>" + formatTitle(data[i].Name) + "</div>";
+                listCode += "</a></div>";
+            }
+        }
+
+        for (i = 0;i < data.length;i++) {
+            if (data[i].Type == "file") {
+                var thisArchive = data[i].Archive;
+
+                listCode += "<div class=\"box\">";
+                listCode += "<a id='thumb_" + i + "' href='#'>";
+                listCode += "<img width='200' data-echo=\"/api/thumbnail?comic=" + fixHTMLQuery(joinPaths(dir, data[i].Name)) + "\"/>";
+
+                listCode += "<div class='icontext'>" + formatTitle(data[i].Name) + "</div>";
+                if (thisArchive == 0)
+                    listCode += "<img src='img/read.png'/>";
+                listCode += "</a></div>";
+            }
+        }
+
+        var linksCode = generateBreadcrumb(dir2);
+
+        $("#details").html(listCode);
+        $("#breadCrumb").html(linksCode);
+
+        // Set the links this way because embedding file names in the HTML can fail if they contain special characters
+        for (i = 0;i < data.length;i++) {
+            var name = data[i].Name;
+            var nbr = i;
+            if (data[i].Type == "file")
+                (function(comic, backDir, nbr) {
+                    $("#thumb_" + i).click(function() {countPagesThenOpen(comic, backDir, nbr);return false;});
+                })(joinPaths(dir, name), backDir, nbr);
+            else if (data[i].Type == "dir")
+                (function (directory) {
+                    $("#thumb_" + i).click(function() {changeDir(directory);return false;});
+                })(name);
+        }
+
+        currentDir = dir2;
+    }, "json");
+}
+
+function loadNextFile(dir, priorFile) {
+    priorFile = parseInt(priorFile);
+    $("#breadCrumb").html("");
+    $("#details").html("<center>Loading next file...<br><img src='/img/loading.gif'/></center>");
+    window.scrollBy(-90000,0);
+
+    console.log("load next file from:",dir);
+    $.get('/api/directory',{dir: dir},function (data) {
+        console.log("directory2",data,priorFile);
+        var foundPage = 0;
+
+        for (i = priorFile + 1;i < data.length;i++) {
+            console.log("Looking at: " + data[i].Name,i);
+            if (data[i].Type == "file") {
+                var thisFile = joinPaths(dir, data[i].Name);
+                if (dir.toUpperCase().endsWith(".RO") || dir.toUpperCase().endsWith(".RO/"))
+                    thisFile = data[i].Name;
+                //console.log("Opening: " + thisFile);
+                countPagesThenOpen(thisFile,dir,i);
+                foundPage = 1;
+                break;
+            }    
+        }
+        
+        if (!foundPage)
+            loadDir(dir);
+    },"json");
+}
+
+function setSetting(name, value) {
+    localStorage.setItem(name, value);
+}
+
+function getSetting (name) {
+    return localStorage.getItem(name);
+}
+
+function startUp() {
+    var file;
+    var page;
+    var totalPages;
+    var dir;
+    var fileNbr;
+
+    echo.init({
+        offsetHorizontal: 900,
+        offsetVertical: 200,
+        throttle: 250,
+        unload: true
+    });
+
+    setInterval(function () {echo.render();},500);
+
+    file = getSetting("cvFile");
+    if (file != null && file != "") {
+        totalPages = getSetting("cvTotalPages");
+        dir = getSetting("cvDir");
+        fileNbr = getSetting("cvFileNbr");
+
+        openComic(file,totalPages,dir,fileNbr);
+    } else {
+        dir = getSetting("cvDir");
+
+        if (dir != null)
+            loadDir(dir);
+        else
+            loadDir('');
+    }
+}
+
+</SCRIPT> 
+</head>
+<body onLoad="javascript:startUp();">
+    <div id="main">
+        <div class="comicpage" id="details"></div>
+        <footer class="pages" id="breadCrumb"></footer>
+    </div>
+</body>
+</html>
