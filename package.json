@@ -19,7 +19,8 @@
     "locks": "^0.2.2",
     "node-unrar-js": "^0.8.1",
     "sharp": "^0.18.4",
-    "yauzl": "^2.8.0"
+    "statuses": "^1.4.0",
+    "yauzl": "^2.9.1"
   },
   "devDependencies": {}
 }

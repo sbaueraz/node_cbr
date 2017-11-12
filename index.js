@@ -73,6 +73,7 @@ setInterval(function() {
             if (err) {
                 console.log("sharp write error ",err," writing file ",work.sourceJPG,work.folderJPG);
                 fs.unlinkSync(work.sourceJPG);
+                fs.unlinkSync(work.folderJPG);
 
                 // sab 2017/11/10- Let everyone waiting on this image it didn't resize properly
                 let res = work.response.pop();
@@ -382,26 +383,36 @@ function generatePage(comic, page, res, saveFolderIcon) {
 
 function saveImage(zipFile, entry, cached, saveFolderIcon, res) {
     zipFile.openReadStream(entry, function(err, readStream) {
-        if (err)
+        if (err) {
             console.log("Unable to read entry",curPage,"error ",err);
-        else {
+            zipFile.close();
+        } else {
             var writeStream = fs.createWriteStream(cached);
-            readStream.pipe(writeStream);
-            writeStream.on('finish', function() {
+            writeStream.on('close', function() {
                 if (saveFolderIcon && (entry.fileName.toUpperCase().endsWith(".JPG") || entry.fileName.toUpperCase().endsWith(".JPEG"))) {
                     let folderIcon = joinPaths(saveFolderIcon, "folder.jpg");
                     console.log("Finished saving",cached," from ",entry.fileName);
                     folderBuilder.push({folderJPG:folderIcon,sourceJPG:cached,response:[res]});
                 }
-                else {
-                    if (res)
-                        returnFile(cached, res);
+                else if (res) {
+                    returnFile(cached, res);
                 }
+            });
+            readStream.on('error', function(err) {
+                console.log("Error reading stream:", err);
+                if (res)
+                    res.status(404).send("not found");
+                zipFile.close();
+            });
+            readStream.on('end', function() {
                 if (saveFolderIcon)
                     zipFile.close();
                 else
                     zipFile.readEntry();
             });
+
+            // Save the entry from the zipfile to the disk
+            readStream.pipe(writeStream);
         }
     });
 }
@@ -413,11 +424,17 @@ function generatePageCBZ(comic, page, retry, res, saveFolderIcon) {
     yauzl.open(comic, {lazyEntries: true, validateEntrySizes: false}, function(err, zipFile) {
         if (err) {
             console.log("Error opening cbz:",comic,err);
-            res.json({Pages:count});
+            res.status(404).send("not found");
             fileAccess[base].unlock();
         }
         else {
-            zipFile.readEntry();
+            zipFile.on("error", function(error) {
+                console.log("Error event", error);
+                zipFile.close();
+            });
+            zipFile.on("end", function(error) {
+                zipFile.close();
+            });
             zipFile.on("entry", function(entry) {
                 //fs.createReadStream(comic).pipe(unzip.Parse()).on('entry',function (entry) {
                 //console.log("ZIP:",comic,"zipFile",zipFile,"Entry:",entry);
@@ -440,6 +457,9 @@ function generatePageCBZ(comic, page, retry, res, saveFolderIcon) {
                 console.log("Finished reading",comic);
                 fileAccess[base].unlock();
             });
+
+            // Read the first entry
+            zipFile.readEntry();
         }
     });
 }
@@ -479,6 +499,10 @@ function generatePageCBR(comic, page, retry, res, saveFolderIcon) {
 
 function returnFile(comic, res) {
     fs.readFile(comic, function(err, data) {
+        if (data.length == 0) {
+            fs.unlink(comic); // Image isn't valid, remove it
+        }
+
         res.writeHead(200, {'Content-Type': 'image/jpeg'});
         res.end(data); // Send the file data to the browser.
     });
