@@ -135,9 +135,8 @@ router.get('/directory', function(req, res) {
 
     if (directory.toUpperCase().endsWith(".RO")) {
         fs.readFile(directory, function(err, roFile) {
-            roFile = "" + roFile;
-            roFile = roFile.replace(/\r/g,'');
-            let roLines = roFile.toString().split('\n');
+            roFile = roFile.toString().replace(/\r/g,'').replace(/\n+$/, "");
+            let roLines = roFile.split('\n');
             for (let i = 0;i < roLines.length;i ++) {
                 listing.push({Type:"file",Name:roLines[i],Archive:1});
             }
@@ -249,10 +248,13 @@ function generateThumbnail(comic, res, saveFolderIcon) {
             });
         }            
         else if (comic.toUpperCase().endsWith(".RO")) {
+            console.log("Generating icon for reading order file ",comic);
             fs.readFile(comic, function(err, roFile) {
-                let roLines = roFile.toString().split('\n');
+                roFile = roFile.toString().replace(/\r/g,'').replace(/\n+$/, "");
+                roLines = roFile.split('\n');
+                console.log("Read file containing ",roLines.length, "lines, first line is",roLines[0]);
                 if (roLines.length > 0)
-                    generatePage(roLines[0], 1, res, saveFolderIcon);
+                    generatePage(joinPaths(config.root_dir,roLines[0]), 1, res, saveFolderIcon);
                 return;
             });
         }
