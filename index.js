@@ -471,6 +471,15 @@ function generatePageCBR(comic, page, retry, res, saveFolderIcon) {
     if (extractor) {
         var list = extractor.extractAll();
         if (list[0].state === "SUCCESS") {
+            // Make sure pages are in order
+            list[1].files.sort(function (a,b) {
+                if (a.fileHeader.name < b.fileHeader.name)
+                    return -1;
+                else if (a.fileHeader.name > b.fileHeader.name)
+                    return 1;
+                return 0;
+            });
+            
             for (let i = 0;list[1].files[i];i ++) {
                 let file = list[1].files[i].fileHeader;
                 if (isImage(file.name)) {

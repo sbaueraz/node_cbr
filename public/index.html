@@ -103,7 +103,9 @@ function formatTitle(str) {
     str = decodeURIComponent(str);
 //    str = replaceStr(str,"&amp;","&");
     var idx = str.lastIndexOf("/");
-    if (idx >= -1)
+    if (idx == -1)
+        idx = str.lastIndexOf("\\");
+    if (idx > -1)
         str = str.slice(idx+1);
     return str;
 }
