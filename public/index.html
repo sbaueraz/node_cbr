@@ -3,7 +3,7 @@
  <title>Comicbooks</title>
  <style>
     body{color: #fff; background-color: #000; font: 12px 'Lucida Grande', Verdana, sans-serif;}
-    .box {float:left; width: 210px; height: 365px; border: 1px solid #9AAFE5; text-decoration: none; text-align: center;position:relative;background: rgba(0,0,0, 1);}
+    .box {float:left; width: 205px; height: 310px; text-decoration: none; text-align: center;position:relative;background: rgba(0,0,0, 1);}
     a:link { color: #fff; }
     a:visited { color: #c0c0c0; }
     a:hover { color: #8080FF; }
@@ -29,8 +29,8 @@
 
     #NextFile {position:fixed; right: 30px;bottom:7px;}
     td, img {padding:0;margin:-1px;}
-    .atag {width: 210px;height: 365px;display:block;}
-    .icontext{bottom:3px;position:absolute;width:100%;}
+    .icontext{color:white;bottom:3px;position:absolute;width:100%;background: rgba(0,0,0,.6);}
+    a:hover .icontext{color: yellow;background: rgba(0,0,0,.9);} 
     /* Page Numbers */
     .pages { padding: .5em 0; margin: 0 0; clear: left; font-size: 16; }
 </style>
@@ -229,7 +229,7 @@ function loadDir(dir) {
         for (i = 0;i < data.length;i++) {
             if (data[i].Type == "dir") {
                 listCode += "<div class=\"box\">";
-                listCode += "<a id='thumb_" + i + "' class=\"atag\" href='#'>";
+                listCode += "<a id='thumb_" + i + "' href='#'>";
                 listCode += "<img width='200' data-echo=\"/api/thumbnail?comic=" + fixHTMLQuery(joinPaths(dir, data[i].Name)) + "\"/>";
                 listCode += "<div class='icontext'>" + formatTitle(data[i].Name) + "</div>";
                 listCode += "</a></div>";
