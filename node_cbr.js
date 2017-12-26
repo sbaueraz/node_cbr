@@ -43,7 +43,7 @@ setInterval(function() {
                 expiration.setDate(expiration.getDate() - config.expiration);
                 let fileDate = new Date(stats.mtime);
                 if (fileDate < expiration) {
-                    console.log("Removing cached page " + joinPaths(config.cacheDirectory,file));
+                    //console.log("Removing cached page " + joinPaths(config.cacheDirectory,file));
                     if (stats.isDirectory())
                         fs.rmdirSync(joinPaths(config.cacheDirectory,file));
                     else
@@ -71,7 +71,7 @@ setInterval(function() {
         }
 
         foldersInProcess.push(work);
-        console.log("Saving folder icon",work.folderJPG);
+        //console.log("Saving folder icon",work.folderJPG);
         sharp(work.sourceJPG).resize(200).toFile(work.folderJPG, function(err) {
             if (err) {
                 console.log("sharp write error ",err," writing file ",work.sourceJPG,work.folderJPG);
@@ -93,7 +93,7 @@ setInterval(function() {
                 }
             }
             else {
-                console.log("Done saving folder icon",work.folderJPG);
+                //console.log("Done saving folder icon",work.folderJPG);
                 let res = work.response.pop();
                 while (res) {
                     returnFile(work.folderJPG, res);
@@ -134,7 +134,7 @@ router.get('/directory', function(req, res) {
     if (directory.endsWith("\\") || directory.endsWith("/"))
         directory = directory.slice(0,-1);
 
-    console.log("dir",directory);
+    //console.log("dir",directory);
 
     if (directory.toUpperCase().endsWith(".RO")) {
         fs.readFile(directory, function(err, roFile) {
@@ -144,7 +144,7 @@ router.get('/directory', function(req, res) {
                 listing.push({Type:"file",Name:roLines[i],Archive:1});
             }
 
-            console.log("Returning ",listing.length," items from ", directory);
+            //console.log("Returning ",listing.length," items from ", directory);
             res.json(listing);
             return;
         });
@@ -170,7 +170,7 @@ router.get('/directory', function(req, res) {
                     return 1;
                 return 0;
             });
-            console.log("Returning ",listing.length," items");
+            //console.log("Returning ",listing.length," items");
             res.json(listing);
         });
     }
@@ -220,7 +220,7 @@ function generateThumbnail(comic, res, saveFolderIcon) {
             console.log("fs.stat Didn't work: ",comic,err);
         else if (stats.isDirectory()) {
             if (fs.existsSync(joinPaths(comic,"folder.jpg"))) {
-                console.log("Returning folder icon found in directory", comic);
+                //console.log("Returning folder icon found in directory", comic);
                 returnFile(joinPaths(comic,"folder.jpg"), res);
                 return;
             }
@@ -251,11 +251,11 @@ function generateThumbnail(comic, res, saveFolderIcon) {
             });
         }            
         else if (comic.toUpperCase().endsWith(".RO")) {
-            console.log("Generating icon for reading order file ",comic);
+            //console.log("Generating icon for reading order file ",comic);
             fs.readFile(comic, function(err, roFile) {
                 roFile = roFile.toString().replace(/\r/g,'').replace(/\n+$/, "");
                 roLines = roFile.split('\n');
-                console.log("Read file containing ",roLines.length, "lines, first line is",roLines[0]);
+                //console.log("Read file containing ",roLines.length, "lines, first line is",roLines[0]);
                 if (roLines.length > 0)
                     generatePage(joinPaths(config.root_dir,roLines[0]), 1, res, saveFolderIcon);
                 return;
@@ -289,7 +289,7 @@ function countPagesCBZ(comic, res) {
                     count ++;
             });
             zipFile.on("end", function() {
-                console.log(comic,"found",count,"pages");
+                //console.log(comic,"found",count,"pages");
                 res.json({Pages:count});
             });
         }
@@ -306,13 +306,13 @@ function countPagesCBR(comic, res) {
                 if (isImage(list[1].fileHeaders[i].name))
                     count ++;
             }
-            console.log(comic,"found",count,"pages");
+            //console.log(comic,"found",count,"pages");
             res.json({Pages:count});
 
             return;
         }
     }
-    console.log("Unable to extract",comic,"error:", extractor);
+    //console.log("Unable to extract",comic,"error:", extractor);
     res.json({Pages:0});
 }
 
@@ -345,7 +345,7 @@ function getCachedName(base) {
 }
 
 function generatePage(comic, page, res, saveFolderIcon) {
-    console.log("loading page for ", comic, page);
+    //console.log("loading page for ", comic, page);
 
     var base=comic.hashCode();
     var cached = getCachedName(base + "_" + page);
@@ -357,7 +357,7 @@ function generatePage(comic, page, res, saveFolderIcon) {
     // Prevent more than one "thread" from accessing a single cbz/cbr file at a time
     fileAccess[base].lock(function () {
         if (!cached) {
-            console.log("  Extracting from ",base, comic);
+            //console.log("  Extracting from ",base, comic);
             if (comic.toUpperCase().endsWith(".CBZ")) {
                 generatePageCBZ(comic, page, false, res, saveFolderIcon);
             }
@@ -365,9 +365,9 @@ function generatePage(comic, page, res, saveFolderIcon) {
                 generatePageCBR(comic, page, false, res, saveFolderIcon);
             }
         } else {
-            console.log("Found existing cached entry for: ", cached, comic);
+            //console.log("Found existing cached entry for: ", cached, comic);
             if (saveFolderIcon && (cached.toUpperCase().endsWith(".JPG") || cached.toUpperCase().endsWith(".JPEG"))) {
-                console.log("Creating work request for cached image",cached);
+                //console.log("Creating work request for cached image",cached);
                 let folderIcon = joinPaths(saveFolderIcon, "folder.jpg");
                 folderBuilder.push({folderJPG:folderIcon,sourceJPG:cached,response:[res]});
             } else
@@ -396,7 +396,7 @@ function saveImage(zipFile, entry, cached, saveFolderIcon, res) {
             writeStream.on('close', function() {
                 if (saveFolderIcon && (entry.fileName.toUpperCase().endsWith(".JPG") || entry.fileName.toUpperCase().endsWith(".JPEG"))) {
                     let folderIcon = joinPaths(saveFolderIcon, "folder.jpg");
-                    console.log("Finished saving",cached," from ",entry.fileName);
+                    //console.log("Finished saving",cached," from ",entry.fileName);
                     folderBuilder.push({folderJPG:folderIcon,sourceJPG:cached,response:[res]});
                 }
                 else if (res) {
@@ -447,7 +447,7 @@ function generatePageCBZ(comic, page, retry, res, saveFolderIcon) {
                     let ext = extExtract.exec(entry.fileName)[1].toLowerCase();
                     let cached = joinPaths(config.cacheDirectory, base + "_" + curPage + "." + ext);
                     if (curPage == page) {
-                        console.log("Beginning to save",cached);
+                        //console.log("Beginning to save",cached);
                         saveImage(zipFile, entry, cached, saveFolderIcon, res);
                     }
                     else if (!saveFolderIcon) {
@@ -459,7 +459,7 @@ function generatePageCBZ(comic, page, retry, res, saveFolderIcon) {
                     zipFile.readEntry();
             });
             zipFile.on("close",function() {
-                console.log("Finished reading",comic);
+                //console.log("Finished reading",comic);
                 fileAccess[base].unlock();
             });
 
@@ -507,7 +507,7 @@ function generatePageCBR(comic, page, retry, res, saveFolderIcon) {
         }
     }
 
-    console.log("Finished reading",comic);
+    //console.log("Finished reading",comic);
     fileAccess[base].unlock();
 }
 
