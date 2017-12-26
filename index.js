@@ -24,7 +24,10 @@ if (!config.cacheDirectory)
 if (!fs.existsSync(config.cacheDirectory))
     fs.mkdirSync(config.cacheDirectory);
 
-app.listen(3000);
+var port = 3000;
+if (config.port && config.port > 0)
+    port = config.port;
+app.listen(port);
 
 fileAccess = {};
 folderBuilder = [];
