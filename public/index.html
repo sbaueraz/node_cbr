@@ -42,8 +42,7 @@
  <meta name="apple-mobile-web-app-capable" content="yes" />
 
  <!-- Choose how to handle the phone status bar -->
- <meta name="apple-mobile-web-app-statu
- s-bar-style" content="black" />
+ <meta name="apple-mobile-web-app-status-bar-style" content="black" />
 
  <link rel="apple-touch-icon" href="img/comics.png"/>
 
@@ -52,11 +51,18 @@
 
 <SCRIPT language="JavaScript">
 var currentDir="";
+var backwards = false;
+
+window.onpopstate = function (event) {
+    backwards = true;
+    startUp();
+    console.log("onpopstate: Current URL = ", window.location.href);
+}
 
 function joinPaths(beg, end) {
     var ret = beg;
 
-    if (!ret.endsWith('/') && !end.startsWith('/'))
+    if (!ret.endsWith('/') && !end.startsWith('/') && beg)
         ret += '/';
     ret += end;
 
@@ -68,7 +74,7 @@ function changeDir(dir) {
 
     if (currentDir != "" && currentDir.substr(-1) == "/")
         currentDir = currentDir.substr(0,currentDir.length - 1);
-    
+
     if (dir == "..") {
         var i = currentDir.lastIndexOf("/");
         if (i != -1)
@@ -80,6 +86,9 @@ function changeDir(dir) {
             newDir = currentDir + "/";
         newDir += dir;
     }
+    while (newDir && newDir.substring(0,1) == "/")
+        newDir = newDir.substring(1);
+    newDir = "/" + newDir;
 
     loadDir(newDir);
 }
@@ -110,14 +119,6 @@ function formatTitle(str) {
     return str;
 }
 
-function countPagesThenOpen(file,dir,fileNbr) {
-    console.log("countPagesThenOpen()",dir,"comic:",file,fileNbr);
-    $.get('/api/pages',{comic: file},function (data) {
-        console.log("coungpages returned:",data);
-        openComic(file,data.Pages,dir,fileNbr);
-     }, "json");
-}
-
 function calculateHeight() {
     var h = window.innerHeight;
     if (h == null)
@@ -140,7 +141,6 @@ function generateBreadcrumb(dir, file) {
     if (!parts.length || parts[0] != '/')
         parts.unshift(sep);
 
-    console.log("breadcrumb ",dir,sep,parts);
     var dir = "";
 
     var len = parts.length;
@@ -160,19 +160,28 @@ function generateBreadcrumb(dir, file) {
         links += "<button id='NextFile'>Next</button>";
     }
 
-    console.log("returning ",links);
     return links;
 }
 
-function openComic(file,totalPages,dir,fileNbr) {
+function countPagesThenOpen(file, dir) {
+    $.get('/api/pages',{comic: file},function (data) {
+        openComic(file,data.Pages,dir);
+     }, "json");
+}
+
+function openComic(file, totalPages, dir) {
+
+    if (!backwards)
+        history.pushState(null, "Comic: " + file,  "?dir=" + dir + "&comic=" + file);
+    else
+        backwards = false;
+
     document.getElementById("details").innerHTML="";
 
     window.scrollBy(-90000,0);
 
     setSetting("cvFile",file);
-    setSetting("cvTotalPages",totalPages);
     setSetting("cvDir",dir);
-    setSetting("cvFileNbr",fileNbr);
 
     var pageCode = "<table><tr>";
 
@@ -196,16 +205,20 @@ function openComic(file,totalPages,dir,fileNbr) {
     $("#details").html(pageCode);
     $("#breadCrumb").html(linksCode);
 
-    console.log("Setting load next file for", dir);
-    $("#NextFile").click(function() {loadNextFile(dir, fileNbr);return false;});
+    $("#NextFile").click(function() {loadNextFile(dir, file); return false;});
 }
 
 function loadDir(dir) {
+    if (!backwards)
+        history.pushState(null, "Directory: " + dir, "?dir=" + dir);
+    else
+        backwards = false;
+
     $("#breadCrumb").html("");
     $("#details").html("<center>Loading directory...<br><img src='/img/loading.gif'/></center>");
     window.scrollBy(-90000,0);
 
-    while (dir.substr(dir.length-1,1) == "/")
+    while (dir.substr(dir.length-1,1) == "/" || dir.substr(dir.length-1,1) == "\\")
         dir=dir.substr(0,dir.length-1);
     var dir2 = dir;
 
@@ -213,19 +226,13 @@ function loadDir(dir) {
     setSetting("cvDir",dir);
     var backDir = dir;
 
-    console.log("loading directory",dir);
     $.get('/api/directory',{dir: dir},function (data) {
         var listCode = "";
 
         if (dir.toUpperCase().endsWith(".RO")) {
-            console.log("Setting dir to nothing",dir);
             dir = "";
         }
-        else
-            console.log("not setting dir to nothing",dir);
 
-        console.log("Directory contains this many directories",data.length);
-        console.log("directories:",data);
         for (i = 0;i < data.length;i++) {
             if (data[i].Type == "dir") {
                 listCode += "<div class=\"box\">";
@@ -259,11 +266,10 @@ function loadDir(dir) {
         // Set the links this way because embedding file names in the HTML can fail if they contain special characters
         for (i = 0;i < data.length;i++) {
             var name = data[i].Name;
-            var nbr = i;
             if (data[i].Type == "file")
-                (function(comic, backDir, nbr) {
-                    $("#thumb_" + i).click(function() {countPagesThenOpen(comic, backDir, nbr);return false;});
-                })(joinPaths(dir, name), backDir, nbr);
+                (function(comic, backDir) {
+                    $("#thumb_" + i).click(function() {countPagesThenOpen(comic, backDir);return false;});
+                })(joinPaths(dir, name), backDir);
             else if (data[i].Type == "dir")
                 (function (directory) {
                     $("#thumb_" + i).click(function() {changeDir(directory);return false;});
@@ -274,30 +280,35 @@ function loadDir(dir) {
     }, "json");
 }
 
-function loadNextFile(dir, priorFile) {
-    priorFile = parseInt(priorFile);
+function loadNextFile(dir, file) {
     $("#breadCrumb").html("");
     $("#details").html("<center>Loading next file...<br><img src='/img/loading.gif'/></center>");
     window.scrollBy(-90000,0);
 
-    console.log("load next file from:",dir);
-    $.get('/api/directory',{dir: dir},function (data) {
-        console.log("directory2",data,priorFile);
-        var foundPage = 0;
+    $.get('/api/directory', {dir: dir}, function (data) {
+        var foundPage = false;
 
-        for (i = priorFile + 1;i < data.length;i++) {
-            console.log("Looking at: " + data[i].Name,i);
+        for (i = 0; i < data.length; i++) {
             if (data[i].Type == "file") {
-                var thisFile = joinPaths(dir, data[i].Name);
+                let thisFile = joinPaths(dir, data[i].Name);
                 if (dir.toUpperCase().endsWith(".RO") || dir.toUpperCase().endsWith(".RO/"))
-                    thisFile = data[i].Name;
-                //console.log("Opening: " + thisFile);
-                countPagesThenOpen(thisFile,dir,i);
-                foundPage = 1;
-                break;
+                        thisFile = data[i].Name;
+
+                console.log("Comparing ", thisFile, file);
+                if (!foundPage) {
+                    if (thisFile.toUpperCase() == file.toUpperCase()) {
+                        console.log("  equals");
+                        foundPage = true;
+                    }
+                    //    thisFile = data[i].Name;
+                } else {
+                    console.log("Opening: " + thisFile);
+                    countPagesThenOpen(thisFile,dir);
+                    break;
+                }
             }    
         }
-        
+
         if (!foundPage)
             loadDir(dir);
     },"json");
@@ -311,12 +322,24 @@ function getSetting (name) {
     return localStorage.getItem(name);
 }
 
+function getUrlParameter(sParam) {
+    var sPageURL = decodeURIComponent(window.location.search.substring(1)),
+        sURLVariables = sPageURL.split('&'),
+        sParameterName,
+        i;
+
+    for (i = 0; i < sURLVariables.length; i++) {
+        sParameterName = sURLVariables[i].split('=');
+
+        if (sParameterName[0] === sParam) {
+            return sParameterName[1] === undefined ? true : sParameterName[1];
+        }
+    }
+}
+
 function startUp() {
-    var file;
-    var page;
-    var totalPages;
+    var comic;
     var dir;
-    var fileNbr;
 
     echo.init({
         offsetHorizontal: 900,
@@ -327,21 +350,20 @@ function startUp() {
 
     setInterval(function () {echo.render();},500);
 
-    file = getSetting("cvFile");
-    if (file != null && file != "") {
-        totalPages = getSetting("cvTotalPages");
-        dir = getSetting("cvDir");
-        fileNbr = getSetting("cvFileNbr");
+    comic = getUrlParameter("comic");
+    dir = getUrlParameter("dir");
 
-        openComic(file,totalPages,dir,fileNbr);
-    } else {
+    if (!dir) {
         dir = getSetting("cvDir");
-
-        if (dir != null)
-            loadDir(dir);
-        else
-            loadDir('');
+        if (!comic)
+            comic = getSetting("cvFile");
     }
+    if (comic && dir) {
+        countPagesThenOpen(comic, dir);
+    } else if (dir) {
+        loadDir(dir);
+    } else
+        loadDir('');
 }
 
 </SCRIPT> 
