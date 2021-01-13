@@ -44,10 +44,14 @@ setInterval(function() {
                 let fileDate = new Date(stats.mtime);
                 if (fileDate < expiration) {
                     //console.log("Removing cached page " + joinPaths(config.cacheDirectory,file));
-                    if (stats.isDirectory())
-                        fs.rmdirSync(joinPaths(config.cacheDirectory,file));
-                    else
-                        fs.unlinkSync(joinPaths(config.cacheDirectory,file));
+                    try {
+                        if (stats.isDirectory())
+                            fs.rmdirSync(joinPaths(config.cacheDirectory,file), { recursive: true } );
+                        else
+                            fs.unlinkSync(joinPaths(config.cacheDirectory,file));
+                    } catch (e) {
+                        console.log("Error deleting",stat,e);
+                    }
                 }
             });
         });
@@ -514,7 +518,10 @@ function generatePageCBR(comic, page, retry, res, saveFolderIcon) {
 function returnFile(comic, res) {
     fs.readFile(comic, function(err, data) {
         if (data.length == 0) {
-            fs.unlink(comic); // Image isn't valid, remove it
+            fs.unlink(comic, (err) => {
+                if (err)
+                    console.log("Unable to remove",comic,err);
+            }); // Image isn't valid, remove it
         }
 
         res.writeHead(200, {'Content-Type': 'image/jpeg'});
